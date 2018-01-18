@@ -15,6 +15,7 @@ namespace Binance.Utility
         #region Private Fields
 
         private readonly CancellationTokenSource _cts;
+        private readonly TaskFactory _tf;
 
         #endregion Private Fields
 
@@ -23,6 +24,8 @@ namespace Binance.Utility
         public TaskController()
         {
             _cts = new CancellationTokenSource();
+            _tf = new TaskFactory(_cts.Token);
+            Task = Task.Delay(0);
         }
 
         #endregion Constructors
@@ -31,19 +34,21 @@ namespace Binance.Utility
 
         public virtual void Begin(Func<CancellationToken, Task> action, Action<Exception> onError = null)
         {
-            Task = Task.Run(async () =>
-            {
-                try { await action(_cts.Token); }
-                catch (OperationCanceledException) { }
-                catch (Exception e)
-                {
-                    if (!_cts.IsCancellationRequested)
-                    {
-                        onError?.Invoke(e);
-                        OnError(e);
-                    }
-                }
-            });
+            var t = Task.Run(async () =>
+             {
+                 try { await action(_cts.Token); }
+                 catch (OperationCanceledException) { }
+                 catch (Exception e)
+                 {
+                     if (!_cts.IsCancellationRequested)
+                     {
+                         onError?.Invoke(e);
+                         OnError(e);
+                     }
+                 }
+             });
+
+            Task = _tf.ContinueWhenAll(new[] { Task, t }, (tasks) => { });
         }
 
         #endregion Public Methods

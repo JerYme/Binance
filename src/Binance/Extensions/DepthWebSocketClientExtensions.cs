@@ -39,5 +39,17 @@ namespace Binance.Api.WebSocket
         /// <returns></returns>
         public static Task SubscribeAsync(this IDepthWebSocketClient cache, string symbol, Action<DepthUpdateEventArgs> callback, CancellationToken token)
             => cache.SubscribeAsync(symbol, default, callback, token);
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="cache"></param>
+        /// <param name="symbol"></param>
+        /// <param name="callback"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public static Task SubscribeAsync(this IDepthWebSocketClient cache, string symbol, int limit, Action<DepthUpdateEventArgs> callback, CancellationToken token)
+            => cache.SubscribeAsync(symbol, limit, callback, token);
     }
 }
