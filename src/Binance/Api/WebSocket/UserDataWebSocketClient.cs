@@ -19,7 +19,7 @@ namespace Binance.Api.WebSocket
         #region Public Constants
 
         public static readonly int KeepAliveTimerPeriodMax = 3600000; // 1 hour
-        public static readonly int KeepAliveTimerPeriodMin =   60000; // 1 minute
+        public static readonly int KeepAliveTimerPeriodMin = 60000; // 1 minute
         public static readonly int KeepAliveTimerPeriodDefault = 1800000; // 30 minutes
 
         #endregion Public Constants
@@ -101,7 +101,7 @@ namespace Binance.Api.WebSocket
 
                 try
                 {
-                    await SubscribeToAsync(_listenKey, callback, token)
+                    await SubscribeToAsync(_listenKey, null, callback, token)
                         .ConfigureAwait(false);
                 }
                 finally
@@ -131,10 +131,12 @@ namespace Binance.Api.WebSocket
         /// Deserialize JSON and raise <see cref="UserDataEventArgs"/> event.
         /// </summary>
         /// <param name="json"></param>
+        /// <param name="symbol"></param>
         /// <param name="token"></param>
         /// <param name="callback"></param>
         /// <returns></returns>
-        protected override void DeserializeJsonAndRaiseEvent(string json, CancellationToken token, Action<UserDataEventArgs> callback = null)
+        protected override void DeserializeJsonAndRaiseEvent(string json, Symbol symbol, CancellationToken token,
+            Action<UserDataEventArgs> callback = null)
         {
             Throw.IfNullOrWhiteSpace(json, nameof(json));
 
@@ -208,7 +210,7 @@ namespace Binance.Api.WebSocket
                             order.Side == OrderSide.Buy,   // is buyer
                             jObject["m"].Value<bool>(),    // is buyer maker
                             jObject["M"].Value<bool>());   // is best price
-                        
+
                         var quantityOfLastFilledTrade = jObject["l"].Value<decimal>();
 
                         var eventArgs = new AccountTradeUpdateEventArgs(eventTime, token, order, rejectedReason, newClientOrderId, trade, quantityOfLastFilledTrade);

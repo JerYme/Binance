@@ -19,11 +19,6 @@ namespace Binance.Api.WebSocket
 
         #endregion Public Events
 
-        #region Public Properties
-
-        public string Symbol { get; private set; }
-
-        #endregion Public Properties
 
         #region Constructors
 
@@ -40,7 +35,7 @@ namespace Binance.Api.WebSocket
 
         #region Public Methods
 
-        public virtual Task SubscribeAsync(string symbol, Action<AggregateTradeEventArgs> callback, CancellationToken token)
+        public virtual Task SubscribeAsync(Symbol symbol, Action<AggregateTradeEventArgs> callback, CancellationToken token)
         {
             Throw.IfNullOrWhiteSpace(symbol, nameof(symbol));
 
@@ -49,12 +44,7 @@ namespace Binance.Api.WebSocket
 
             token.ThrowIfCancellationRequested();
 
-            Symbol = symbol.FormatSymbol();
-
-            if (IsSubscribed)
-                throw new InvalidOperationException($"{nameof(AggregateTradeWebSocketClient)} is already subscribed to symbol: \"{Symbol}\"");
-
-            return SubscribeToAsync($"{Symbol.ToLower()}@aggTrade", callback, token);
+            return SubscribeToAsync($"{symbol.ToLower()}@aggTrade", symbol, callback, token);
         }
 
         #endregion Public Methods
@@ -65,9 +55,11 @@ namespace Binance.Api.WebSocket
         /// Deserialize JSON and raise <see cref="AggregateTradeEventArgs"/> event.
         /// </summary>
         /// <param name="json"></param>
+        /// <param name="symbol"></param>
         /// <param name="token"></param>
         /// <param name="callback"></param>
-        protected override void DeserializeJsonAndRaiseEvent(string json, CancellationToken token, Action<AggregateTradeEventArgs> callback = null)
+        protected override void DeserializeJsonAndRaiseEvent(string json, Symbol symbol, CancellationToken token,
+            Action<AggregateTradeEventArgs> callback = null)
         {
             Throw.IfNullOrWhiteSpace(json, nameof(json));
 

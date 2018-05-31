@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -8,12 +9,13 @@ namespace Binance.Utility
     {
         #region Public Properties
 
-        public Task Task { get; private set; }
+        public Task Task => Task.WhenAll(_tasks);
 
         #endregion Public Properties
 
         #region Private Fields
 
+        private readonly IList<Task> _tasks;
         private readonly CancellationTokenSource _cts;
         private readonly TaskFactory _tf;
 
@@ -25,7 +27,7 @@ namespace Binance.Utility
         {
             _cts = new CancellationTokenSource();
             _tf = new TaskFactory(_cts.Token);
-            Task = Task.Delay(0);
+            _tasks = new List<Task>();
         }
 
         #endregion Constructors
@@ -35,20 +37,20 @@ namespace Binance.Utility
         public virtual void Begin(Func<CancellationToken, Task> action, Action<Exception> onError = null)
         {
             var t = Task.Run(async () =>
-             {
-                 try { await action(_cts.Token); }
-                 catch (OperationCanceledException) { }
-                 catch (Exception e)
-                 {
-                     if (!_cts.IsCancellationRequested)
-                     {
-                         onError?.Invoke(e);
-                         OnError(e);
-                     }
-                 }
-             });
+            {
+                try { await action(_cts.Token); }
+                catch (OperationCanceledException) { }
+                catch (Exception e)
+                {
+                    if (!_cts.IsCancellationRequested)
+                    {
+                        onError?.Invoke(e);
+                        OnError(e);
+                    }
+                }
+            });
 
-            Task = _tf.ContinueWhenAll(new[] { Task, t }, (tasks) => { });
+            _tasks.Add(t);
         }
 
         #endregion Public Methods

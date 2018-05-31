@@ -21,8 +21,8 @@ namespace Binance.Api.WebSocket
 
         #region Protected Fields
 
-        protected BufferBlock<string> BufferBlock;
-        protected ActionBlock<string> ActionBlock;
+        //protected BufferBlock<string> BufferBlock;
+        //protected ActionBlock<string> ActionBlock;
 
         protected bool IsSubscribed;
 
@@ -61,7 +61,7 @@ namespace Binance.Api.WebSocket
 
         #region Protected Methods
 
-        protected abstract void DeserializeJsonAndRaiseEvent(string json, CancellationToken token, Action<TEventArgs> callback = null);
+        protected abstract void DeserializeJsonAndRaiseEvent(string json, Symbol symbol, CancellationToken token, Action<TEventArgs> callback = null);
 
         /// <summary>
         /// Subscribe.
@@ -70,51 +70,46 @@ namespace Binance.Api.WebSocket
         /// <param name="callback"></param>
         /// <param name="token"></param>
         /// <returns></returns>
-        protected async Task SubscribeToAsync(string uriPath, Action<TEventArgs> callback, CancellationToken token)
+        protected async Task SubscribeToAsync(string uriPath, Symbol symbol, Action<TEventArgs> callback, CancellationToken token)
         {
             Logger?.LogInformation($"{GetType().Name}.{nameof(SubscribeToAsync)}: \"{BaseUri}{uriPath}\"");
 
             IsSubscribed = true;
 
-            try
+            var bufferBlock = new BufferBlock<string>(new DataflowBlockOptions
             {
-                BufferBlock = new BufferBlock<string>(new DataflowBlockOptions
+                EnsureOrdered = true,
+                CancellationToken = token,
+                BoundedCapacity = DataflowBlockOptions.Unbounded,
+                MaxMessagesPerTask = DataflowBlockOptions.Unbounded
+            });
+
+            var actionBlock = new ActionBlock<string>(json =>
                 {
+                    try { DeserializeJsonAndRaiseEvent(json, symbol, token, callback); }
+                    catch (OperationCanceledException) { }
+                    catch (Exception e)
+                    {
+                        if (!token.IsCancellationRequested)
+                        {
+                            Logger?.LogError(e, $"{GetType().Name}: Unhandled {nameof(DeserializeJsonAndRaiseEvent)} exception.");
+                        }
+                    }
+                },
+                new ExecutionDataflowBlockOptions
+                {
+                    BoundedCapacity = 1,
                     EnsureOrdered = true,
+                    MaxDegreeOfParallelism = 1,
                     CancellationToken = token,
-                    BoundedCapacity = DataflowBlockOptions.Unbounded,
-                    MaxMessagesPerTask = DataflowBlockOptions.Unbounded
+                    SingleProducerConstrained = true
                 });
 
-                ActionBlock = new ActionBlock<string>(json =>
-                    {
-                        try { DeserializeJsonAndRaiseEvent(json, token, callback); }
-                        catch (OperationCanceledException) { }
-                        catch (Exception e)
-                        {
-                            if (!token.IsCancellationRequested)
-                            {
-                                Logger?.LogError(e, $"{GetType().Name}: Unhandled {nameof(DeserializeJsonAndRaiseEvent)} exception.");
-                            }
-                        }
-                    },
-                    new ExecutionDataflowBlockOptions
-                    {
-                        BoundedCapacity = 1,
-                        EnsureOrdered = true,
-                        MaxDegreeOfParallelism = 1,
-                        CancellationToken = token,
-                        SingleProducerConstrained = true
-                    });
-
-                BufferBlock.LinkTo(ActionBlock);
-
+            try
+            {
+                bufferBlock.LinkTo(actionBlock);
                 var uri = new Uri($"{BaseUri}{uriPath}");
-
-                WebSocket.Message += OnClientMessage;
-
-                await WebSocket.RunAsync(uri, token)
-                    .ConfigureAwait(false);
+                await WebSocket.RunAsync(uri, (sender, args) => OnClientMessage(args.Message, bufferBlock), token: token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { }
             catch (Exception e)
@@ -127,10 +122,9 @@ namespace Binance.Api.WebSocket
             }
             finally
             {
-                WebSocket.Message -= OnClientMessage;
 
-                BufferBlock?.Complete();
-                ActionBlock?.Complete();
+                bufferBlock?.Complete();
+                actionBlock?.Complete();
 
                 IsSubscribed = false;
             }
@@ -140,12 +134,12 @@ namespace Binance.Api.WebSocket
 
         #region Private Methods
 
-        private void OnClientMessage(object sender, WebSocketClientMessageEventArgs e)
+        private void OnClientMessage(string message, BufferBlock<string> bufferBlock)
         {
             // Provides buffering and single-threaded execution.
-            BufferBlock.Post(e.Message);
+            bufferBlock.Post(message);
 
-            var count = BufferBlock.Count;
+            var count = bufferBlock.Count;
             if (count <= _maxBufferCount)
                 return;
 

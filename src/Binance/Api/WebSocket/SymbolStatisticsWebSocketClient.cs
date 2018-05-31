@@ -20,12 +20,6 @@ namespace Binance.Api.WebSocket
 
         #endregion Public Events
 
-        #region Public Properties
-
-        public string Symbol { get; private set; }
-
-        #endregion Public Properties
-
         #region Constructors
 
         /// <summary>
@@ -48,13 +42,10 @@ namespace Binance.Api.WebSocket
 
             token.ThrowIfCancellationRequested();
 
-            if (IsSubscribed)
-                throw new InvalidOperationException($"{nameof(SymbolStatisticsWebSocketClient)} is already subscribed to all symbols.");
-
-            return SubscribeToAsync("!ticker@arr", callback, token);
+            return SubscribeToAsync("!ticker@arr", null, callback, token);
         }
 
-        public virtual Task SubscribeAsync(string symbol, Action<SymbolStatisticsEventArgs> callback, CancellationToken token)
+        public virtual Task SubscribeAsync(Symbol symbol, Action<SymbolStatisticsEventArgs> callback, CancellationToken token)
         {
             Throw.IfNullOrWhiteSpace(symbol, nameof(symbol));
 
@@ -63,12 +54,7 @@ namespace Binance.Api.WebSocket
 
             token.ThrowIfCancellationRequested();
 
-            Symbol = symbol.FormatSymbol();
-
-            if (IsSubscribed)
-                throw new InvalidOperationException($"{nameof(SymbolStatisticsWebSocketClient)} is already subscribed to symbol: \"{Symbol}\"");
-
-            return SubscribeToAsync($"{Symbol.ToLower()}@ticker", callback, token);
+            return SubscribeToAsync($"{symbol.ToLower()}@ticker", symbol, callback, token);
         }
 
         #endregion Public Methods
@@ -79,9 +65,11 @@ namespace Binance.Api.WebSocket
         /// Deserialize JSON and raise <see cref="SymbolStatisticsEventArgs"/> event.
         /// </summary>
         /// <param name="json"></param>
+        /// <param name="symbol"></param>
         /// <param name="token"></param>
         /// <param name="callback"></param>
-        protected override void DeserializeJsonAndRaiseEvent(string json, CancellationToken token, Action<SymbolStatisticsEventArgs> callback = null)
+        protected override void DeserializeJsonAndRaiseEvent(string json, Symbol symbol, CancellationToken token,
+            Action<SymbolStatisticsEventArgs> callback = null)
         {
             Throw.IfNullOrWhiteSpace(json, nameof(json));
 

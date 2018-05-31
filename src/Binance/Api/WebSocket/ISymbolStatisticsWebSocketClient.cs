@@ -39,7 +39,7 @@ namespace Binance.Api.WebSocket
         /// <param name="callback">An event callback.</param>
         /// <param name="token">The cancellation token.</param>
         /// <returns><see cref="Task"/></returns>
-        Task SubscribeAsync(string symbol, Action<SymbolStatisticsEventArgs> callback, CancellationToken token);
+        Task SubscribeAsync(Symbol symbol, Action<SymbolStatisticsEventArgs> callback, CancellationToken token);
 
         #endregion Public Methods
     }

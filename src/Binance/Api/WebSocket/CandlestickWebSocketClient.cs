@@ -19,12 +19,6 @@ namespace Binance.Api.WebSocket
 
         #endregion Public Events
 
-        #region Public Properties
-
-        public string Symbol { get; private set; }
-
-        #endregion Public Properties
-
         #region Constructors
 
         /// <summary>
@@ -40,7 +34,7 @@ namespace Binance.Api.WebSocket
 
         #region Public Methods
 
-        public virtual Task SubscribeAsync(string symbol, CandlestickInterval interval, Action<CandlestickEventArgs> callback, CancellationToken token)
+        public virtual Task SubscribeAsync(Symbol symbol, CandlestickInterval interval, Action<CandlestickEventArgs> callback, CancellationToken token)
         {
             Throw.IfNullOrWhiteSpace(symbol, nameof(symbol));
 
@@ -49,12 +43,7 @@ namespace Binance.Api.WebSocket
 
             token.ThrowIfCancellationRequested();
 
-            Symbol = symbol.FormatSymbol();
-
-            if (IsSubscribed)
-                throw new InvalidOperationException($"{nameof(CandlestickWebSocketClient)} is already subscribed to symbol: \"{symbol}\"");
-
-            return SubscribeToAsync($"{Symbol.ToLower()}@kline_{interval.AsString()}", callback, token);
+            return SubscribeToAsync($"{symbol.ToLower()}@kline_{interval.AsString()}", symbol, callback, token);
         }
 
         #endregion Public Methods
@@ -65,9 +54,11 @@ namespace Binance.Api.WebSocket
         /// Deserialize JSON and raise <see cref="CandlestickEventArgs"/> event.
         /// </summary>
         /// <param name="json"></param>
+        /// <param name="symbol"></param>
         /// <param name="token"></param>
         /// <param name="callback"></param>
-        protected override void DeserializeJsonAndRaiseEvent(string json, CancellationToken token, Action<CandlestickEventArgs> callback = null)
+        protected override void DeserializeJsonAndRaiseEvent(string json, Symbol symbol, CancellationToken token,
+            Action<CandlestickEventArgs> callback = null)
         {
             Throw.IfNullOrWhiteSpace(json, nameof(json));
 

@@ -19,11 +19,6 @@ namespace Binance.Api.WebSocket
 
         #endregion Public Events
 
-        #region Public Properties
-
-        public string Symbol { get; private set; }
-
-        #endregion Public Properties
 
         #region Constructors
 
@@ -40,7 +35,7 @@ namespace Binance.Api.WebSocket
 
         #region Public Methods
 
-        public virtual Task SubscribeAsync(string symbol, int limit, Action<DepthUpdateEventArgs> callback, CancellationToken token)
+        public virtual Task SubscribeAsync(Symbol symbol, int limit, Action<DepthUpdateEventArgs> callback, CancellationToken token)
         {
             Throw.IfNullOrWhiteSpace(symbol, nameof(symbol));
 
@@ -49,12 +44,7 @@ namespace Binance.Api.WebSocket
 
             token.ThrowIfCancellationRequested();
 
-            Symbol = symbol.FormatSymbol();
-
-            if (IsSubscribed)
-                throw new InvalidOperationException($"{nameof(DepthWebSocketClient)} is already subscribed to symbol: \"{Symbol}\"");
-
-            return SubscribeToAsync(limit > 0 ? $"{Symbol.ToLowerInvariant()}@depth{limit}" : $"{Symbol.ToLowerInvariant()}@depth", callback, token);
+            return SubscribeToAsync(limit > 0 ? $"{symbol.ToLower()}@depth{limit}" : $"{symbol.ToLower()}@depth", symbol, callback, token);
         }
 
         #endregion Public Methods
@@ -65,9 +55,11 @@ namespace Binance.Api.WebSocket
         /// Deserialize JSON and raise <see cref="DepthUpdateEventArgs"/> event.
         /// </summary>
         /// <param name="json"></param>
+        /// <param name="symbol"></param>
         /// <param name="token"></param>
         /// <param name="callback"></param>
-        protected override void DeserializeJsonAndRaiseEvent(string json, CancellationToken token, Action<DepthUpdateEventArgs> callback = null)
+        protected override void DeserializeJsonAndRaiseEvent(string json, Symbol symbol, CancellationToken token,
+            Action<DepthUpdateEventArgs> callback = null)
         {
             Throw.IfNullOrWhiteSpace(json, nameof(json));
 
@@ -84,32 +76,32 @@ namespace Binance.Api.WebSocket
                 switch (eventType)
                 {
                     case null:
-                    {
-                        // Simulate event time.
-                        var eventTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                        {
+                            // Simulate event time.
+                            var eventTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-                        var lastUpdateId = jObject["lastUpdateId"].Value<long>();
+                            var lastUpdateId = jObject["lastUpdateId"].Value<long>();
 
-                        var bids = jObject["bids"].Select(entry => (entry[0].Value<decimal>(), entry[1].Value<decimal>())).ToArray();
-                        var asks = jObject["asks"].Select(entry => (entry[0].Value<decimal>(), entry[1].Value<decimal>())).ToArray();
+                            var bids = jObject["bids"].Select(entry => (entry[0].Value<decimal>(), entry[1].Value<decimal>())).ToArray();
+                            var asks = jObject["asks"].Select(entry => (entry[0].Value<decimal>(), entry[1].Value<decimal>())).ToArray();
 
-                        eventArgs = new DepthUpdateEventArgs(eventTime, token, Symbol, lastUpdateId, lastUpdateId, bids, asks);
-                        break;
-                    }
+                            eventArgs = new DepthUpdateEventArgs(eventTime, token, symbol, lastUpdateId, lastUpdateId, bids, asks);
+                            break;
+                        }
                     case "depthUpdate":
-                    {
-                        var symbol = jObject["s"].Value<string>();
-                        var eventTime = jObject["E"].Value<long>();
+                        {
+                            var symbolString = jObject["s"].Value<string>();
+                            var eventTime = jObject["E"].Value<long>();
 
-                        var firstUpdateId = jObject["U"].Value<long>();
-                        var lastUpdateId = jObject["u"].Value<long>();
+                            var firstUpdateId = jObject["U"].Value<long>();
+                            var lastUpdateId = jObject["u"].Value<long>();
 
-                        var bids = jObject["b"].Select(entry => (entry[0].Value<decimal>(), entry[1].Value<decimal>())).ToArray();
-                        var asks = jObject["a"].Select(entry => (entry[0].Value<decimal>(), entry[1].Value<decimal>())).ToArray();
+                            var bids = jObject["b"].Select(entry => (entry[0].Value<decimal>(), entry[1].Value<decimal>())).ToArray();
+                            var asks = jObject["a"].Select(entry => (entry[0].Value<decimal>(), entry[1].Value<decimal>())).ToArray();
 
-                        eventArgs = new DepthUpdateEventArgs(eventTime, token, symbol, firstUpdateId, lastUpdateId, bids, asks);
-                        break;
-                    }
+                            eventArgs = new DepthUpdateEventArgs(eventTime, token, symbolString, firstUpdateId, lastUpdateId, bids, asks);
+                            break;
+                        }
                     default:
                         Logger?.LogWarning($"{nameof(DepthWebSocketClient)}.{nameof(DeserializeJsonAndRaiseEvent)}: Unexpected event type ({eventType}).");
                         return;

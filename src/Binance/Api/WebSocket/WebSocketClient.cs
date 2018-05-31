@@ -10,16 +10,6 @@ namespace Binance.Api.WebSocket
 {
     public sealed class WebSocketClient : IWebSocketClient
     {
-        #region Public Events
-
-        public event EventHandler<EventArgs> Open;
-
-        public event EventHandler<WebSocketClientMessageEventArgs> Message;
-
-        public event EventHandler<EventArgs> Close;
-
-        #endregion Public Events
-
         #region Private Constants
 
         private const int ReceiveBufferSize = 16 * 1024;
@@ -47,7 +37,7 @@ namespace Binance.Api.WebSocket
 
         #region Public Methods
 
-        public async Task RunAsync(Uri uri, CancellationToken token)
+        public async Task RunAsync(Uri uri, EventHandler<WebSocketClientMessageEventArgs> message, EventHandler<EventArgs> open = null, EventHandler<EventArgs> close = null, CancellationToken token = default(CancellationToken))
         {
             Throw.IfNull(uri, nameof(uri));
 
@@ -67,7 +57,7 @@ namespace Binance.Api.WebSocket
                         .ConfigureAwait(false);
 
                     if (webSocket.State == WebSocketState.Open)
-                        RaiseOpenEvent();
+                        RaiseOpenEvent(open);
                 }
                 catch (OperationCanceledException) { }
                 catch (Exception e)
@@ -139,7 +129,7 @@ namespace Binance.Api.WebSocket
                     var json = stringBuilder.ToString();
                     if (!string.IsNullOrWhiteSpace(json))
                     {
-                        RaiseMessageEvent(new WebSocketClientMessageEventArgs(json));
+                        RaiseMessageEvent(message, new WebSocketClientMessageEventArgs(json));
                     }
                     else
                     {
@@ -155,7 +145,7 @@ namespace Binance.Api.WebSocket
                     await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None)
                         .ConfigureAwait(false);
 
-                    RaiseCloseEvent();
+                    RaiseCloseEvent(close);
                 }
 
                 webSocket?.Dispose();
@@ -169,9 +159,9 @@ namespace Binance.Api.WebSocket
         /// <summary>
         /// Raise open event.
         /// </summary>
-        private void RaiseOpenEvent()
+        private void RaiseOpenEvent(EventHandler<EventArgs> open)
         {
-            try { Open?.Invoke(this, EventArgs.Empty); }
+            try { open?.Invoke(this, EventArgs.Empty); }
             catch (OperationCanceledException) { }
             catch (Exception e)
             {
@@ -183,9 +173,9 @@ namespace Binance.Api.WebSocket
         /// Raise message event.
         /// </summary>
         /// <param name="args"></param>
-        private void RaiseMessageEvent(WebSocketClientMessageEventArgs args)
+        private void RaiseMessageEvent(EventHandler<WebSocketClientMessageEventArgs> message,WebSocketClientMessageEventArgs args)
         {
-            try { Message?.Invoke(this, args); }
+            try { message?.Invoke(this, args); }
             catch (OperationCanceledException) { }
             catch (Exception e)
             {
@@ -196,9 +186,9 @@ namespace Binance.Api.WebSocket
         /// <summary>
         /// Raise close event.
         /// </summary>
-        private void RaiseCloseEvent()
+        private void RaiseCloseEvent(EventHandler<EventArgs> close)
         {
-            try { Close?.Invoke(this, EventArgs.Empty); }
+            try { close?.Invoke(this, EventArgs.Empty); }
             catch (OperationCanceledException) { }
             catch (Exception e)
             {

@@ -273,7 +273,7 @@ namespace Binance
 
         public static bool operator ==(Symbol x, Symbol y) => Equals(x, y);
 
-        public static bool operator !=(Symbol x, Symbol y) => !(x == y);
+        public static bool operator !=(Symbol x, Symbol y) => !Equals(x, y);
 
         public static implicit operator string(Symbol symbol) => symbol.ToString();
 
@@ -671,6 +671,8 @@ namespace Binance
             }
         }
 
+        public string ToLower() => _symbol.ToLower();
+
         public override string ToString()
         {
             return _symbol;
@@ -678,7 +680,9 @@ namespace Binance
 
         public override bool Equals(object obj)
         {
-            return _symbol.Equals(obj);
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            return _symbol.Equals((obj as Symbol)?._symbol);
         }
 
         public override int GetHashCode()
